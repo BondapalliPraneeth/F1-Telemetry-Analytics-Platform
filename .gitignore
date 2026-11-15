@@ -1,0 +1,15 @@
+# data and caches (never commit raw F1 data)
+data/
+.fastf1-cache/
+.env
+.venv/
+node_modules/
+dist/
+__pycache__/
+*.pyc
+.pytest_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+*.egg-info/
+.ipynb_checkpoints/
