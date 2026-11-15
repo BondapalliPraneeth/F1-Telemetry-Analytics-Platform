@@ -1,0 +1,22 @@
+FROM python:3.11-slim
+
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    PIP_NO_CACHE_DIR=1
+
+WORKDIR /app
+
+# Install the package (dependencies are resolved from pyproject.toml).
+COPY pyproject.toml README.md ./
+COPY src ./src
+RUN pip install .
+
+COPY alembic.ini ./
+COPY alembic ./alembic
+
+RUN useradd --create-home --uid 1000 app && mkdir -p /app/data /app/.fastf1-cache \
+    && chown -R app /app/data /app/.fastf1-cache
+USER app
+
+EXPOSE 8000
+CMD ["sh", "-c", "alembic upgrade head && uvicorn f1tel.api:app --host 0.0.0.0 --port 8000"]

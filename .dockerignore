@@ -1,0 +1,15 @@
+.venv
+.git
+data
+.fastf1-cache
+.env
+**/node_modules
+**/dist
+__pycache__
+*.pyc
+.pytest_cache
+.ruff_cache
+.coverage
+htmlcov
+tests
+notebooks

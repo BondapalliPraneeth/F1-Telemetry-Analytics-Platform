@@ -1,0 +1,28 @@
+{
+ "year": 2024,
+ "round": 1,
+ "event": "Fixture Grand Prix",
+ "event_slug": "Fixture_Grand_Prix",
+ "location": "Testville",
+ "session": "R",
+ "n_laps": 28,
+ "n_accurate": 20,
+ "corners": [
+  {
+   "number": 1,
+   "letter": "",
+   "distance_m": 300.0
+  },
+  {
+   "number": 2,
+   "letter": "",
+   "distance_m": 1200.0
+  },
+  {
+   "number": 3,
+   "letter": "",
+   "distance_m": 2600.0
+  }
+ ],
+ "ingested_at": "2026-11-15T07:20:06+00:00"
+}
