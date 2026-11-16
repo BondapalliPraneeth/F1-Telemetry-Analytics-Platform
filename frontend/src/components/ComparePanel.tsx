@@ -26,8 +26,9 @@ function LapSelect({
       >
         <option value="">Fastest lap</option>
         {laps.map((l) => (
-          <option key={l.lap_number} value={l.lap_number}>
+          <option key={l.lap_number} value={l.lap_number} disabled={!l.has_telemetry}>
             Lap {l.lap_number} · {lapTime(l.lap_time_s)}
+            {l.has_telemetry ? "" : ` · ${l.pit_in ? "in lap" : l.pit_out ? "out lap" : "no telemetry"} (not comparable)`}
           </option>
         ))}
       </select>
@@ -215,16 +216,14 @@ export default function ComparePanel({ session, drivers }: { session: number; dr
   const lapsB = useAsync(() => api.laps(session, b), [session, b], !!b);
   const cmp = useAsync(() => api.compare(session, a, b, lapA, lapB), [session, a, b, lapA, lapB], !!a && !!b);
 
-  const withTel = (l: Lap[] | null) => (l ?? []).filter((x) => x.has_telemetry);
-
   if (drivers.length === 0) return <Empty>No drivers in this session.</Empty>;
   return (
     <div className="grid gap-4">
       <div className="card grid grid-cols-2 gap-3 md:grid-cols-4">
         <DriverSelect label="Driver A" drivers={drivers} value={a} onChange={(v) => { setA(v); setLapA(undefined); }} />
-        <LapSelect label="Lap A" laps={withTel(lapsA.data)} value={lapA} onChange={setLapA} />
+        <LapSelect label="Lap A" laps={lapsA.data ?? []} value={lapA} onChange={setLapA} />
         <DriverSelect label="Driver B" drivers={drivers} value={b} onChange={(v) => { setB(v); setLapB(undefined); }} />
-        <LapSelect label="Lap B" laps={withTel(lapsB.data)} value={lapB} onChange={setLapB} />
+        <LapSelect label="Lap B" laps={lapsB.data ?? []} value={lapB} onChange={setLapB} />
       </div>
       {cmp.loading && <Loading what="comparison" />}
       {cmp.error && <ErrorBox error={cmp.error} />}

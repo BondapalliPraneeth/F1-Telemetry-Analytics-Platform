@@ -87,7 +87,7 @@ Entries say **not yet measured** until the script has been run against real inge
 
 | Metric | Value |
 | --- | --- |
-| Test coverage (`pytest --cov`, gate at 80%) | 93% (74 tests passed, 1 PostgreSQL-only test skipped locally; synthetic fixture) |
+| Test coverage (`pytest --cov`, gate at 80%) | 93.6% (77 tests passed, 1 PostgreSQL-only test skipped locally; synthetic fixture) |
 | Telemetry samples ingested | 2,181,236 raw samples across the 5 seed sessions (3,133 laps) |
 | Parquet reload vs cold FastF1 load | 0.21 s vs 49.5 s for 2024 Monza Q (about 235x faster; median of 5 reloads) |
 | Sessions in the seed set | 5 (2024 Monza Q, Monza R, Bahrain R, Monaco Q, Silverstone R) |

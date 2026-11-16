@@ -5,7 +5,16 @@ import type { Driver } from "../types";
 import Plot, { COLORS, axis } from "./Plot";
 import { Empty, ErrorBox, Loading } from "./Status";
 
-export default function DegradationPanel({ session, drivers }: { session: number; drivers: Driver[] }) {
+export default function DegradationPanel({
+  session,
+  sessionType,
+  drivers,
+}: {
+  session: number;
+  sessionType: string;
+  drivers: Driver[];
+}) {
+  const isRace = sessionType === "R" || sessionType === "S";
   const [driver, setDriver] = useState("");
   const [stint, setStint] = useState<number | undefined>();
   const [fuel, setFuel] = useState(0.03);
@@ -16,18 +25,26 @@ export default function DegradationPanel({ session, drivers }: { session: number
 
   const stints = useAsync(() => api.stints(session, driver), [session, driver], !!driver);
   useEffect(() => {
-    setStint(stints.data?.[0]?.stint_number);
+    const longest = [...(stints.data ?? [])].sort((x, y) => y.n_laps - x.n_laps)[0];
+    setStint(longest?.stint_number);
   }, [stints.data]);
 
   const deg = useAsync(
     () => api.degradation(session, driver, stint!, fuel),
     [session, driver, stint, fuel],
-    !!driver && stint !== undefined,
+    isRace && !!driver && stint !== undefined,
   );
 
   const d = deg.data;
   const band = d?.band ?? [];
   const f = d?.fit;
+  if (!isRace)
+    return (
+      <Empty>
+        Tyre degradation needs a long run on one set of tyres, so it is only shown for races. A qualifying
+        run has one push lap per set, which is too few laps to fit a trend.
+      </Empty>
+    );
   return (
     <div className="grid gap-4">
       <div className="card grid grid-cols-2 gap-3 md:grid-cols-4">

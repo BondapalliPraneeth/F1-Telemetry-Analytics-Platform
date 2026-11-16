@@ -20,6 +20,8 @@ export interface Lap {
   compound: string | null;
   has_telemetry: boolean;
   is_accurate: boolean;
+  pit_in: boolean;
+  pit_out: boolean;
 }
 export interface Stint {
   driver: string;

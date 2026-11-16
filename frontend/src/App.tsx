@@ -79,7 +79,11 @@ export default function App() {
           {drivers.error && <ErrorBox error={drivers.error} />}
           {drivers.loading && <Loading what="drivers" />}
           {drivers.data && tab === "compare" && <ComparePanel session={sessionId} drivers={drivers.data} />}
-          {drivers.data && tab === "degradation" && <DegradationPanel session={sessionId} drivers={drivers.data} />}
+          {drivers.data && tab === "degradation" && <DegradationPanel
+              session={sessionId}
+              sessionType={sessions.data?.find((s) => s.id === sessionId)?.session_type ?? ""}
+              drivers={drivers.data}
+            />}
           {tab === "replay" && <ReplayPanel session={sessionId} />}
         </>
       )}
