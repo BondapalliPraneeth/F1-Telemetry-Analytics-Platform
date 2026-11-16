@@ -53,6 +53,15 @@ from f1tel.schemas import (
     TrendPoint,
 )
 
+MAX_ID = 2_147_483_647  # PostgreSQL integer maximum; larger ids can never exist
+
+SECURITY_HEADERS = {
+    "X-Content-Type-Options": "nosniff",
+    "X-Frame-Options": "DENY",
+    "Referrer-Policy": "no-referrer",
+    "Content-Security-Policy": "default-src 'none'; frame-ancestors 'none'",
+}
+
 DEGRADATION_NOTE = (
     "Fuel correction is an approximation: corrected = lap_time + fuel_effect_s_per_lap * "
     "(lap_number - 1). The slope also absorbs track evolution, traffic and driver pace."
@@ -173,6 +182,16 @@ def create_app() -> FastAPI:
     )
     app.include_router(replay_router)
 
+    @app.middleware("http")
+    async def security_headers(request: Request, call_next):  # type: ignore[no-untyped-def]
+        response = await call_next(request)
+        if request.url.path not in ("/docs", "/redoc", "/openapi.json"):
+            for k, v in SECURITY_HEADERS.items():
+                response.headers.setdefault(k, v)
+        else:
+            response.headers.setdefault("X-Content-Type-Options", "nosniff")
+        return response
+
     @app.exception_handler(SQLAlchemyError)
     async def db_error(_: Request, exc: SQLAlchemyError) -> JSONResponse:
         return JSONResponse(status_code=503, content={"detail": "database unavailable"})
@@ -214,7 +233,7 @@ def create_app() -> FastAPI:
 
     @app.get("/drivers", response_model=list[DriverOut], tags=["sessions"])
     def drivers(
-        db: DB, session: Annotated[int, Query(description="session id")]
+        db: DB, session: Annotated[int, Query(ge=1, le=MAX_ID, description="session id")]
     ) -> list[DriverOut]:
         """Drivers in a session."""
         _get_session(db, session)
@@ -226,7 +245,7 @@ def create_app() -> FastAPI:
     @app.get("/laps", response_model=list[LapOut], tags=["laps"])
     def laps(
         db: DB,
-        session: Annotated[int, Query(description="session id")],
+        session: Annotated[int, Query(ge=1, le=MAX_ID, description="session id")],
         driver: Annotated[
             str, Query(min_length=2, max_length=8, description="driver code, e.g. VER")
         ],
@@ -261,7 +280,7 @@ def create_app() -> FastAPI:
     @app.get("/stints", response_model=list[StintOut], tags=["laps"])
     def stints(
         db: DB,
-        session: Annotated[int, Query()],
+        session: Annotated[int, Query(ge=1, le=MAX_ID)],
         driver: Annotated[str, Query(min_length=2, max_length=8)],
     ) -> list[StintOut]:
         """Tyre stints of one driver."""
@@ -286,11 +305,15 @@ def create_app() -> FastAPI:
     @app.get("/compare", response_model=CompareOut, tags=["analysis"])
     def compare(
         db: DB,
-        session: Annotated[int, Query(description="session id")],
+        session: Annotated[int, Query(ge=1, le=MAX_ID, description="session id")],
         a: Annotated[str, Query(min_length=2, max_length=8, description="driver A code")],
         b: Annotated[str, Query(min_length=2, max_length=8, description="driver B code")],
-        lap_a: Annotated[int | None, Query(ge=1, description="default: A's fastest lap")] = None,
-        lap_b: Annotated[int | None, Query(ge=1, description="default: B's fastest lap")] = None,
+        lap_a: Annotated[
+            int | None, Query(ge=1, le=MAX_ID, description="default: A fastest")
+        ] = None,
+        lap_b: Annotated[
+            int | None, Query(ge=1, le=MAX_ID, description="default: B fastest")
+        ] = None,
         mini: Annotated[int, Query(ge=1, le=60, description="number of mini-sectors")] = 20,
     ) -> CompareOut:
         """Compare two laps by distance: speed/throttle/brake traces, delta and sector tables."""
@@ -344,9 +367,9 @@ def create_app() -> FastAPI:
     @app.get("/degradation", response_model=DegradationOut, tags=["analysis"])
     def degradation(
         db: DB,
-        session: Annotated[int, Query(description="session id")],
+        session: Annotated[int, Query(ge=1, le=MAX_ID, description="session id")],
         driver: Annotated[str, Query(min_length=2, max_length=8)],
-        stint: Annotated[int, Query(ge=1, description="stint number")],
+        stint: Annotated[int, Query(ge=1, le=MAX_ID, description="stint number")],
         fuel_effect_s_per_lap: Annotated[
             float | None, Query(ge=0, le=0.2, description="default from server config")
         ] = None,
@@ -421,7 +444,7 @@ def create_app() -> FastAPI:
     @app.get("/pace-trend", response_model=TrendOut, tags=["analysis"])
     def pace_trend(
         db: DB,
-        session: Annotated[int, Query(description="session id")],
+        session: Annotated[int, Query(ge=1, le=MAX_ID, description="session id")],
         driver: Annotated[str, Query(min_length=2, max_length=8)],
         confidence: Annotated[float, Query(gt=0.5, lt=0.999)] = 0.95,
     ) -> TrendOut:

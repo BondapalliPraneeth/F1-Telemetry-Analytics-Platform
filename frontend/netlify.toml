@@ -11,3 +11,12 @@
   from = "/*"
   to = "/index.html"
   status = 200
+
+# Security headers (a CSP is deliberately left out until Plotly is verified under it in a browser)
+[[headers]]
+  for = "/*"
+  [headers.values]
+    X-Content-Type-Options = "nosniff"
+    X-Frame-Options = "DENY"
+    Referrer-Policy = "strict-origin-when-cross-origin"
+    Permissions-Policy = "camera=(), microphone=(), geolocation=()"

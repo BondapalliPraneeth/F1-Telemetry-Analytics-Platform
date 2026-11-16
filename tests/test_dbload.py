@@ -137,3 +137,11 @@ def test_postgres_partitioned_load(fixture_session_dir: Path) -> None:  # pragma
             )
         ).scalar_one()
     assert parts == 1
+
+
+def test_loaded_throttle_stays_within_0_100(engine: Engine, fixture_session_dir: Path) -> None:
+    with engine.connect() as c:
+        hi, lo = c.execute(
+            select(func.max(TelemetryResampled.throttle), func.min(TelemetryResampled.throttle))
+        ).one()
+    assert lo >= 0 and hi <= 100

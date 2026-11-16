@@ -139,3 +139,21 @@ def test_database_failure_maps_to_503(engine: Engine) -> None:
     app.dependency_overrides[get_db] = broken
     with TestClient(app, raise_server_exceptions=False) as c:
         assert c.get("/health").status_code == 503
+
+
+def test_huge_ids_are_validation_errors_not_db_errors(client):
+    for url in (
+        "/laps?session=99999999999999999999&driver=VER",
+        "/compare?session=99999999999999999999&a=VER&b=NOR",
+        "/degradation?session=1&driver=VER&stint=99999999999999999999",
+        "/pace-trend?session=0&driver=VER",
+    ):
+        assert client.get(url).status_code == 422, url
+
+
+def test_security_headers_present(client):
+    r = client.get("/health")
+    assert r.headers["x-content-type-options"] == "nosniff"
+    assert r.headers["x-frame-options"] == "DENY"
+    assert r.headers["referrer-policy"] == "no-referrer"
+    assert "default-src 'none'" in r.headers["content-security-policy"]

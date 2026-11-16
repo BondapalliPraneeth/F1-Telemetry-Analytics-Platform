@@ -170,7 +170,7 @@ async def _read_controls(
 @router.websocket("/ws/replay")
 async def replay(
     ws: WebSocket,
-    session: Annotated[int, Query(description="session id")],
+    session: Annotated[int, Query(ge=1, le=2_147_483_647, description="session id")],
     speed: Annotated[float, Query(ge=MIN_SPEED, le=MAX_SPEED)] = 1.0,
     start: Annotated[float | None, Query(description="session time to start from (s)")] = None,
     db: Session = Depends(get_db),

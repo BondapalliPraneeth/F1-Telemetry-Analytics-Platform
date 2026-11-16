@@ -194,6 +194,8 @@ def _load_metadata(
                 continue
             res = res[_TEL_COLUMNS]
             res["gear"] = res["gear"].round().astype("Int64")
+            # Raw feeds occasionally report throttle codes above 100 (seen up to 104).
+            res["throttle"] = res["throttle"].clip(0, 100)
             res.insert(0, "lap_number", int(row.lap_number))
             res.insert(0, "driver", row.driver)
             res.insert(0, "session_id", sid)
