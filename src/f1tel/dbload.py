@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import time
 from datetime import datetime
 from pathlib import Path
 from typing import Any
@@ -10,6 +11,7 @@ from typing import Any
 import pandas as pd
 from sqlalchemy import insert, select
 from sqlalchemy.engine import Engine
+from sqlalchemy.exc import OperationalError
 
 from f1tel.align import DEFAULT_STEP_M, AlignmentError, resample_frame
 from f1tel.db import (
@@ -81,13 +83,16 @@ def build_stints(laps: pd.DataFrame) -> pd.DataFrame:
 
 
 def load_session_dir(
-    engine: Engine, sdir: Path, step: float = DEFAULT_STEP_M, *, chunk: int = 50_000
+    engine: Engine, sdir: Path, step: float = DEFAULT_STEP_M, *, chunk: int = 10_000
 ) -> int:
     """Replace one session in the database with the contents of an ingested directory.
 
     Reads ``meta.json``, ``laps.parquet`` and every per-lap telemetry file, resamples each
-    lap to the ``step`` metre grid and bulk-inserts. The whole load runs in one transaction,
-    so re-running is idempotent (the old copy of the session is replaced).
+    lap to the ``step`` metre grid and bulk-inserts. Metadata goes in one transaction and
+    telemetry in short per-chunk transactions (each retried on a dropped connection), because
+    long transactions are cut off by some managed databases. If the load fails, the partial
+    session is deleted again, so the database never keeps half a session; re-running is
+    idempotent (the old copy of the session is replaced).
 
     Returns:
         Number of resampled telemetry rows written.
@@ -99,6 +104,49 @@ def load_session_dir(
     ingested_at = datetime.fromisoformat(meta["ingested_at"]) if meta.get("ingested_at") else None
 
     total = 0
+    sid: int | None = None
+    try:
+        sid, tel_frames = _load_metadata(engine, sdir, meta, laps, ingested_at, step)
+        buffer: list[dict[str, Any]] = []
+        for frame in tel_frames:
+            buffer.extend(_records(frame))
+            total += len(frame)
+            if len(buffer) >= chunk:
+                _insert_chunk(engine, buffer)
+                buffer = []
+        if buffer:
+            _insert_chunk(engine, buffer)
+    except BaseException:
+        if sid is not None:
+            with engine.begin() as conn:
+                drop_session_data(conn, sid)
+        raise
+    return total
+
+
+def _insert_chunk(engine: Engine, rows: list[dict[str, Any]], attempts: int = 4) -> None:
+    """Insert one telemetry chunk in its own transaction, retrying dropped connections."""
+    for attempt in range(1, attempts + 1):
+        try:
+            with engine.begin() as conn:
+                conn.execute(insert(TelemetryResampled), rows)
+            return
+        except OperationalError:
+            if attempt == attempts:
+                raise
+            engine.dispose()
+            time.sleep(2.0 * attempt)
+
+
+def _load_metadata(
+    engine: Engine,
+    sdir: Path,
+    meta: dict[str, Any],
+    laps: pd.DataFrame,
+    ingested_at: datetime | None,
+    step: float,
+) -> tuple[int, list[pd.DataFrame]]:
+    """Replace the session row, drivers, laps and stints; return the session id and telemetry."""
     with engine.begin() as conn:
         old = conn.execute(
             select(SessionRow.id).where(
@@ -164,14 +212,4 @@ def load_session_dir(
         if not stints.empty:
             stints["session_id"] = sid
             conn.execute(insert(StintRow), _records(stints))
-
-        buffer: list[dict[str, Any]] = []
-        for frame in tel_frames:
-            buffer.extend(_records(frame))
-            total += len(frame)
-            if len(buffer) >= chunk:
-                conn.execute(insert(TelemetryResampled), buffer)
-                buffer = []
-        if buffer:
-            conn.execute(insert(TelemetryResampled), buffer)
-    return total
+    return sid, tel_frames
