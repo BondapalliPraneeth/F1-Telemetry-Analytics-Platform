@@ -29,7 +29,7 @@ from f1tel.db import (
     StintRow,
     TelemetryResampled,
 )
-from f1tel.degradation import InsufficientDataError, analyze_stint
+from f1tel.degradation import InsufficientDataError, analyze_stint, fit_degradation
 from f1tel.deps import get_db
 from f1tel.replay import router as replay_router
 from f1tel.schemas import (
@@ -48,6 +48,9 @@ from f1tel.schemas import (
     SessionOut,
     StintOut,
     TraceOut,
+    TrendBandPoint,
+    TrendOut,
+    TrendPoint,
 )
 
 DEGRADATION_NOTE = (
@@ -55,6 +58,11 @@ DEGRADATION_NOTE = (
     "(lap_number - 1). The slope also absorbs track evolution, traffic and driver pace."
 )
 
+PUSH_LIMIT = 1.07  # push laps: timed laps within 107% of the driver's best
+TREND_NOTE = (
+    "Slope of push-lap time against lap number. In qualifying it mostly reflects the track getting "
+    "faster and drivers pushing harder; it is not tyre degradation."
+)
 
 DB = Annotated[Session, Depends(get_db)]
 
@@ -408,6 +416,66 @@ def create_app() -> FastAPI:
                 for x, y, lw, h in zip(xs, fit_y, lo, hi, strict=True)
             ],
             cleaning=CleaningOut(**asdict(result.cleaning)),
+        )
+
+    @app.get("/pace-trend", response_model=TrendOut, tags=["analysis"])
+    def pace_trend(
+        db: DB,
+        session: Annotated[int, Query(description="session id")],
+        driver: Annotated[str, Query(min_length=2, max_length=8)],
+        confidence: Annotated[float, Query(gt=0.5, lt=0.999)] = 0.95,
+    ) -> TrendOut:
+        """Trend of a driver's push-lap times over a session, with a confidence interval."""
+        _get_session(db, session)
+        driver = driver.upper()
+        rows = db.scalars(
+            select(LapRow)
+            .where(LapRow.session_id == session, LapRow.driver == driver)
+            .order_by(LapRow.lap_number)
+        ).all()
+        timed = [
+            r
+            for r in rows
+            if r.lap_time_s is not None and r.is_accurate and not r.pit_in and not r.pit_out
+        ]
+        if not timed:
+            raise HTTPException(404, f"no timed laps for {driver} in session {session}")
+        best = min(r.lap_time_s for r in timed)
+        push = [r for r in timed if r.lap_time_s <= best * PUSH_LIMIT]
+        if len(push) < 3:
+            raise InsufficientDataError(f"need >= 3 push laps to fit a trend (got {len(push)})")
+        x = np.array([r.lap_number for r in push], dtype=float)
+        y = np.array([r.lap_time_s for r in push], dtype=float)
+        f = fit_degradation(x, y, confidence)
+        xs = np.linspace(x.min(), x.max(), 25)
+        fit_y, lo, hi = f.band(xs)
+        return TrendOut(
+            session_id=session,
+            driver=driver,
+            note=TREND_NOTE,
+            push_limit=PUSH_LIMIT,
+            points=[
+                TrendPoint(
+                    lap_number=int(r.lap_number),
+                    lap_time_s=float(r.lap_time_s),
+                    compound=r.compound,
+                )
+                for r in push
+            ],
+            fit=FitOut(
+                slope=f.slope,
+                intercept=f.intercept,
+                stderr=f.stderr,
+                ci_low=f.ci_low,
+                ci_high=f.ci_high,
+                r2=f.r2,
+                n=f.n,
+                confidence=f.confidence,
+            ),
+            band=[
+                TrendBandPoint(lap_number=float(a), fit=float(b), low=float(c), high=float(d))
+                for a, b, c, d in zip(xs, fit_y, lo, hi, strict=True)
+            ],
         )
 
     return app

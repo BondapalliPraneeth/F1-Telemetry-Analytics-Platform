@@ -174,3 +174,32 @@ class DegradationOut(BaseModel):
     fit: FitOut
     band: list[BandPoint]
     cleaning: CleaningOut
+
+
+class TrendPoint(BaseModel):
+    """One push lap used in the session lap-time trend."""
+
+    lap_number: int
+    lap_time_s: float
+    compound: str | None
+
+
+class TrendBandPoint(BaseModel):
+    """Fitted line with its confidence band at one lap number."""
+
+    lap_number: float
+    fit: float
+    low: float
+    high: float
+
+
+class TrendOut(BaseModel):
+    """Lap-time trend of one driver's push laps across a session (not tyre degradation)."""
+
+    session_id: int
+    driver: str
+    note: str
+    push_limit: float
+    points: list[TrendPoint]
+    fit: FitOut
+    band: list[TrendBandPoint]

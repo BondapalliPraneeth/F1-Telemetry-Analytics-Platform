@@ -120,3 +120,12 @@ export type ReplayMsg =
   | { type: "frame"; t: number; speed: number; playing: boolean; cars: ReplayCar[] }
   | { type: "end"; t: number }
   | { type: "error"; detail: string };
+
+export interface PaceTrend {
+  driver: string;
+  note: string;
+  push_limit: number;
+  points: { lap_number: number; lap_time_s: number; compound: string | null }[];
+  fit: Degradation["fit"];
+  band: { lap_number: number; fit: number; low: number; high: number }[];
+}

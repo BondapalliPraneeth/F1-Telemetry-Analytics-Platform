@@ -1,4 +1,4 @@
-import type { Compare, Degradation, Driver, Lap, Session, Stint } from "./types";
+import type { Compare, Degradation, Driver, Lap, Session, Stint, PaceTrend } from "./types";
 
 const BASE: string = import.meta.env.VITE_API_URL ?? "/api";
 
@@ -44,6 +44,7 @@ export const api = {
     get<Compare>("/compare", { session, a, b, lap_a: lapA, lap_b: lapB }),
   degradation: (session: number, driver: string, stint: number, fuel?: number) =>
     get<Degradation>("/degradation", { session, driver, stint, fuel_effect_s_per_lap: fuel }),
+  paceTrend: (session: number, driver: string) => get<PaceTrend>("/pace-trend", { session, driver }),
 };
 
 /** WebSocket URL for replay (works behind the /api proxy and with an absolute VITE_API_URL). */

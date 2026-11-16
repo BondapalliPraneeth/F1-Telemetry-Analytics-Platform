@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
 import { api } from "../api";
-import { lapTime, useAsync } from "../hooks";
+import { fmt, lapTime, useAsync } from "../hooks";
 import type { Driver } from "../types";
-import Plot, { axis } from "./Plot";
+import Plot, { COLORS, axis } from "./Plot";
 import { Empty, ErrorBox, Loading } from "./Status";
 
 const COMPOUND_COLORS: Record<string, string> = {
@@ -25,6 +25,9 @@ export default function QualifyingPanel({ session, drivers }: { session: number;
 
   const laps = useAsync(() => api.laps(session, driver), [session, driver], !!driver);
   const stints = useAsync(() => api.stints(session, driver), [session, driver], !!driver);
+  const trend = useAsync(() => api.paceTrend(session, driver), [session, driver], !!driver);
+  const tf = trend.data?.fit;
+  const band = trend.data?.band ?? [];
 
   const view = useMemo(() => {
     const timed = (laps.data ?? []).filter((l) => l.lap_time_s !== null && l.is_accurate && !l.pit_in && !l.pit_out);
@@ -88,11 +91,61 @@ export default function QualifyingPanel({ session, drivers }: { session: number;
       {laps.loading && <Loading what="laps" />}
       {laps.error && <ErrorBox error={laps.error} />}
       {laps.data && !view && <Empty>No timed push laps recorded for {driver}.</Empty>}
+      {trend.error && (
+        <Empty>No session trend for {driver}: {trend.error}</Empty>
+      )}
+      {tf && (
+        <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+          <div className="card">
+            <span className="label">Session trend</span>
+            <p className="text-xl font-semibold tabular-nums">{fmt(tf.slope, 3)} s/lap</p>
+          </div>
+          <div className="card">
+            <span className="label">{Math.round(tf.confidence * 100)}% CI</span>
+            <p className="text-xl font-semibold tabular-nums">
+              [{fmt(tf.ci_low, 3)}, {fmt(tf.ci_high, 3)}]
+            </p>
+          </div>
+          <div className="card">
+            <span className="label">R² / push laps used</span>
+            <p className="text-xl font-semibold tabular-nums">
+              {fmt(tf.r2, 2)} / {tf.n}
+            </p>
+          </div>
+          <div className="card">
+            <span className="label">Reading</span>
+            <p className="text-sm">Track evolution and driver effort, not tyre wear.</p>
+          </div>
+        </div>
+      )}
       {view && (
         <section className="card" aria-label="Qualifying lap times">
           <div className="h-80">
             <Plot
-              data={compounds.map((c) => {
+              data={[
+                ...(tf && band.length
+                  ? [
+                      {
+                        x: [...band.map((p) => p.lap_number), ...band.map((p) => p.lap_number).reverse()],
+                        y: [...band.map((p) => p.high), ...band.map((p) => p.low).reverse()],
+                        type: "scatter",
+                        fill: "toself",
+                        fillcolor: "rgba(56,189,248,0.18)",
+                        line: { width: 0 },
+                        name: `${Math.round(tf.confidence * 100)}% band`,
+                        hoverinfo: "skip",
+                      },
+                      {
+                        x: band.map((p) => p.lap_number),
+                        y: band.map((p) => p.fit),
+                        type: "scatter",
+                        mode: "lines",
+                        line: { color: COLORS.a, width: 2 },
+                        name: "Session trend",
+                      },
+                    ]
+                  : []),
+                ...compounds.map((c) => {
                 const pts = shown.filter((l) => (l.compound ?? "UNKNOWN") === c);
                 return {
                   x: pts.map((l) => l.lap_number),
@@ -108,7 +161,8 @@ export default function QualifyingPanel({ session, drivers }: { session: number;
                   },
                   name: c,
                 };
-              })}
+              }),
+              ]}
               layout={{ xaxis: axis("Lap number"), yaxis: axis("Lap time (s)") }}
             />
           </div>
@@ -155,7 +209,7 @@ export default function QualifyingPanel({ session, drivers }: { session: number;
         </section>
       )}
       <p className="text-xs text-zinc-400">
-        Shows timed laps within 107% of the driver&apos;s best, excluding in and out laps. The biggest dot is
+        The trend line is fitted to all push laps. Push laps are timed laps within 107% of the driver&apos;s best, excluding in and out laps. The biggest dot is
         the best lap.
       </p>
     </div>

@@ -10,6 +10,7 @@ from sqlalchemy.engine import Engine
 from sqlalchemy.exc import OperationalError
 from sqlalchemy.orm import Session
 
+from f1tel import api as api_module
 from f1tel.api import create_app
 from f1tel.deps import get_db
 
@@ -104,6 +105,28 @@ def test_degradation_errors(client: TestClient) -> None:
         params={"session": 1, "driver": "AAA", "stint": 1, "fuel_effect_s_per_lap": 5},
     )
     assert bad.status_code == 422
+
+
+def test_pace_trend(client: TestClient) -> None:
+    r = client.get("/pace-trend", params={"session": 1, "driver": "AAA"})
+    assert r.status_code == 200
+    body = r.json()
+    laps = [p["lap_number"] for p in body["points"]]
+    assert laps == sorted(laps) and len(laps) == body["fit"]["n"] >= 3
+    assert body["fit"]["ci_low"] <= body["fit"]["slope"] <= body["fit"]["ci_high"]
+    assert len(body["band"]) == 25
+    assert all(p["low"] <= p["fit"] <= p["high"] for p in body["band"])
+    assert "not tyre degradation" in body["note"]
+    best = min(p["lap_time_s"] for p in body["points"])
+    assert all(p["lap_time_s"] <= best * body["push_limit"] for p in body["points"])
+
+
+def test_pace_trend_errors(client: TestClient, monkeypatch: pytest.MonkeyPatch) -> None:
+    assert client.get("/pace-trend", params={"session": 1, "driver": "ZZZ"}).status_code == 404
+    assert client.get("/pace-trend", params={"session": 99, "driver": "AAA"}).status_code == 404
+    monkeypatch.setattr(api_module, "PUSH_LIMIT", 1.0)  # only the best lap qualifies
+    r = client.get("/pace-trend", params={"session": 1, "driver": "AAA"})
+    assert r.status_code == 422 and "push laps" in r.json()["detail"]
 
 
 def test_database_failure_maps_to_503(engine: Engine) -> None:
