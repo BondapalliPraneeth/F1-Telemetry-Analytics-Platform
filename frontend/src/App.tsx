@@ -29,7 +29,6 @@ export default function App() {
       <header className="mb-6 flex flex-wrap items-end justify-between gap-4">
         <div>
           <h1 className="text-xl font-semibold">F1 Telemetry Analytics</h1>
-          <p className="text-xs text-zinc-500">Unofficial project. F1 and related marks belong to their owners.</p>
         </div>
         <label className="block min-w-64">
           <span className="label">Session</span>

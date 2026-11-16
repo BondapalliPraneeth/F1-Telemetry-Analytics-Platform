@@ -45,14 +45,13 @@ export default function DegradationPanel({
     return (
       <div className="grid gap-4">
         <Empty>
-          Tyre degradation needs a long run on one set of tyres, so it is only shown for races. A qualifying
-          run has one push lap per set, which is too few laps to fit a trend. Below are this session&apos;s
+          Qualifying runs are too short to fit a tyre-degradation trend, so this session shows each stint&apos;s
           push laps instead.
           {onOpenRace && (
             <>
               {" "}
               <button type="button" className="text-sky-400 underline" onClick={onOpenRace}>
-                Switch to a race session
+                See degradation in a race
               </button>
             </>
           )}
