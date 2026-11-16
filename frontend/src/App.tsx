@@ -83,6 +83,11 @@ export default function App() {
               session={sessionId}
               sessionType={sessions.data?.find((s) => s.id === sessionId)?.session_type ?? ""}
               drivers={drivers.data}
+              onOpenRace={
+                sessions.data?.some((s) => s.session_type === "R")
+                  ? () => setSessionId(sessions.data?.find((s) => s.session_type === "R")?.id)
+                  : undefined
+              }
             />}
           {tab === "replay" && <ReplayPanel session={sessionId} />}
         </>
