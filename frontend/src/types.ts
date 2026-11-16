@@ -105,6 +105,7 @@ export interface ReplayCar {
   y: number;
   speed: number | null;
   lap: number;
+  distance_m: number | null;
 }
 export type ReplayMsg =
   | {
@@ -113,6 +114,7 @@ export type ReplayMsg =
       t1: number;
       speed: number;
       drivers: string[];
+      teams: Record<string, string>;
       track: { x: number[]; y: number[] };
     }
   | { type: "frame"; t: number; speed: number; playing: boolean; cars: ReplayCar[] }

@@ -40,6 +40,14 @@ def test_frame_interpolates_and_respects_gaps() -> None:
     assert data.frame_at(100) == []  # beyond the max gap after the last sample
 
 
+def test_frame_carries_interpolated_lap_distance() -> None:
+    df = make_data().samples.assign(distance_m=lambda d: d["t"] * 50.0)
+    (car,) = ReplayData(df).frame_at(2.5)
+    assert car["distance_m"] == pytest.approx(125.0)
+    (plain,) = make_data().frame_at(2.5)  # no distance column: reported as unknown
+    assert plain["distance_m"] is None
+
+
 def test_no_interpolation_across_laps() -> None:
     df = pd.DataFrame(
         {
@@ -116,6 +124,8 @@ def test_ws_streams_frames_in_order(client: TestClient, engine: Engine) -> None:
         hello = ws.receive_json()
         assert hello["type"] == "hello" and hello["drivers"] == ["AAA", "BBB"]
         assert len(hello["track"]["x"]) > 10
+        assert set(hello["teams"]) == {"AAA", "BBB"}
+        assert all(isinstance(v, str) for v in hello["teams"].values())
         times = []
         while True:
             msg = ws.receive_json()

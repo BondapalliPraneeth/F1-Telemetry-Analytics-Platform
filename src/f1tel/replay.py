@@ -25,7 +25,7 @@ from fastapi.concurrency import run_in_threadpool
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from f1tel.db import LapRow, SessionRow, TelemetryResampled
+from f1tel.db import DriverRow, LapRow, SessionRow, TelemetryResampled
 from f1tel.deps import get_db
 
 router = APIRouter(tags=["replay"])
@@ -70,12 +70,14 @@ class ReplayData:
     """All samples of a session, indexed per driver by absolute session time."""
 
     def __init__(self, samples: pd.DataFrame) -> None:
-        """``samples``: columns driver, lap_number, t (session s), x, y, speed."""
+        """``samples``: columns driver, lap_number, t (session s), x, y, speed and, optionally,
+        distance_m (distance into the lap, used to order cars on track)."""
+        cols = ["t", "lap_number", "x", "y", "speed"]
+        if "distance_m" in samples:
+            cols.append("distance_m")
         self.by_driver: dict[str, dict[str, np.ndarray]] = {}
         for driver, g in samples.sort_values("t").groupby("driver"):
-            self.by_driver[str(driver)] = {
-                c: g[c].to_numpy(dtype=float) for c in ("t", "lap_number", "x", "y", "speed")
-            }
+            self.by_driver[str(driver)] = {c: g[c].to_numpy(dtype=float) for c in cols}
         self.t0 = float(samples["t"].min())
         self.t1 = float(samples["t"].max())
         self.samples = samples
@@ -88,6 +90,7 @@ class ReplayData:
             if i < 0 or t - a["t"][i] > MAX_GAP_S:
                 continue
             x, y, spd = a["x"][i], a["y"][i], a["speed"][i]
+            dist = a["distance_m"][i] if "distance_m" in a else np.nan
             j = i + 1
             if (
                 j < a["t"].size
@@ -98,6 +101,8 @@ class ReplayData:
                 x += w * (a["x"][j] - x)
                 y += w * (a["y"][j] - y)
                 spd += w * (a["speed"][j] - spd)
+                if "distance_m" in a:
+                    dist += w * (a["distance_m"][j] - dist)
             if np.isfinite(x) and np.isfinite(y):
                 cars.append(
                     {
@@ -106,6 +111,7 @@ class ReplayData:
                         "y": float(y),
                         "speed": None if not np.isfinite(spd) else float(spd),
                         "lap": int(a["lap_number"][i]),
+                        "distance_m": None if not np.isfinite(dist) else float(dist),
                     }
                 )
         return cars
@@ -132,6 +138,7 @@ def build_replay(db: Session, session_id: int) -> ReplayData | None:
             TelemetryResampled.x,
             TelemetryResampled.y,
             TelemetryResampled.speed,
+            TelemetryResampled.distance_m,
         )
         .join(
             LapRow,
@@ -141,7 +148,10 @@ def build_replay(db: Session, session_id: int) -> ReplayData | None:
         )
         .where(TelemetryResampled.session_id == session_id, LapRow.lap_start_s.is_not(None))
     )
-    df = pd.DataFrame(db.execute(q).all(), columns=["driver", "lap_number", "t", "x", "y", "speed"])
+    df = pd.DataFrame(
+        db.execute(q).all(),
+        columns=["driver", "lap_number", "t", "x", "y", "speed", "distance_m"],
+    )
     return ReplayData(df) if len(df) else None
 
 
@@ -177,6 +187,13 @@ async def replay(
         await ws.close(code=1008)
         return
 
+    teams = {
+        code: team or ""
+        for code, team in db.execute(
+            select(DriverRow.code, DriverRow.team).where(DriverRow.session_id == session)
+        )
+        if code in data.by_driver
+    }
     t_start = data.t0 if start is None else min(max(start, data.t0), data.t1)
     state = ReplayState(t=t_start, speed=speed)
     stop = asyncio.Event()
@@ -189,6 +206,7 @@ async def replay(
                 "t1": data.t1,
                 "speed": state.speed,
                 "drivers": sorted(data.by_driver),
+                "teams": teams,
                 "track": data.track_outline(),
             }
         )

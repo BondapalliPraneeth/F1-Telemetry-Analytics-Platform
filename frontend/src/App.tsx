@@ -89,7 +89,10 @@ export default function App() {
                   : undefined
               }
             />}
-          {tab === "replay" && <ReplayPanel session={sessionId} />}
+          {tab === "replay" && <ReplayPanel
+              session={sessionId}
+              sessionType={sessions.data?.find((s) => s.id === sessionId)?.session_type ?? ""}
+            />}
         </>
       )}
     </div>
