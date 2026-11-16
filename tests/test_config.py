@@ -22,3 +22,13 @@ def test_env_override(monkeypatch) -> None:
 
 def test_get_settings_cached() -> None:
     assert get_settings() is get_settings()
+
+
+def test_database_url_gets_psycopg_driver() -> None:
+    for raw in ("postgres://u:p@h/db", "postgresql://u:p@h/db"):
+        assert (
+            Settings(_env_file=None, database_url=raw).database_url
+            == "postgresql+psycopg://u:p@h/db"
+        )
+    keep = "postgresql+psycopg://u:p@h/db"
+    assert Settings(_env_file=None, database_url=keep).database_url == keep

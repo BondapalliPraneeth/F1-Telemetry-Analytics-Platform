@@ -1,0 +1,24 @@
+# Render Blueprint: New > Blueprint > select this repo.
+# After the first deploy, set F1TEL_CORS_ORIGINS to your Netlify site URL (dashboard > Environment).
+databases:
+  - name: f1tel-db
+    plan: free
+    databaseName: f1tel
+    user: f1tel
+
+services:
+  - type: web
+    name: f1tel-api
+    runtime: docker
+    dockerfilePath: ./Dockerfile.api
+    plan: free
+    healthCheckPath: /health
+    envVars:
+      - key: F1TEL_DATABASE_URL
+        fromDatabase:
+          name: f1tel-db
+          property: connectionString
+      - key: F1TEL_CORS_ORIGINS
+        sync: false # e.g. https://your-site.netlify.app
+      - key: F1TEL_DATA_DIR
+        value: /app/data
