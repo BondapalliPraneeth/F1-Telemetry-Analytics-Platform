@@ -81,7 +81,7 @@ export default function ReplayPanel({ session, sessionType }: { session: number;
   const mmss = (s: number) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, "0")}`;
 
   return (
-    <div className="grid gap-4">
+    <div className="grid grid-cols-1 gap-4">
       <div className="card flex flex-wrap items-end gap-3">
         <button className="btn" onClick={start} disabled={conn === "connecting"}>
           {conn === "idle" || conn === "ended" ? "Start replay" : "Restart"}

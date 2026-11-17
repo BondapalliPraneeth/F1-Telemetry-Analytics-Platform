@@ -52,7 +52,7 @@ export default function QualifyingPanel({ session, drivers }: { session: number;
 
   const compounds = view ? [...new Set(shown.map((l) => l.compound ?? "UNKNOWN"))] : [];
   return (
-    <div className="grid gap-4">
+    <div className="grid grid-cols-1 gap-4">
       <div className="card grid grid-cols-2 gap-3 md:grid-cols-4">
         <label className="block">
           <span className="label">Driver</span>

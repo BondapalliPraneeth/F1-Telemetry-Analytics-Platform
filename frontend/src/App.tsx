@@ -25,7 +25,7 @@ export default function App() {
   const drivers = useAsync(() => api.drivers(sessionId!), [sessionId], sessionId !== undefined);
 
   return (
-    <div className="mx-auto max-w-6xl px-4 py-6">
+    <div className="mx-auto w-full min-w-0 max-w-6xl px-4 py-6">
       <header className="mb-6 flex flex-wrap items-end justify-between gap-4">
         <div>
           <h1 className="text-xl font-semibold">F1 Telemetry Analytics</h1>
@@ -58,7 +58,7 @@ export default function App() {
 
       {sessionId !== undefined && (
         <>
-          <nav className="mb-4 flex gap-1 border-b border-zinc-800" role="tablist">
+          <nav className="mb-4 flex gap-1 overflow-x-auto border-b border-zinc-800" role="tablist">
             {TABS.map((t) => (
               <button
                 key={t.id}

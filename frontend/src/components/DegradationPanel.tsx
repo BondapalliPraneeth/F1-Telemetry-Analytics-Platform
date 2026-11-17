@@ -43,7 +43,7 @@ export default function DegradationPanel({
   const f = d?.fit;
   if (!isRace)
     return (
-      <div className="grid gap-4">
+      <div className="grid grid-cols-1 gap-4">
         <Empty>
           Qualifying runs are too short to fit a tyre-degradation trend, so this session shows each stint&apos;s
           push laps instead.
@@ -60,7 +60,7 @@ export default function DegradationPanel({
       </div>
     );
   return (
-    <div className="grid gap-4">
+    <div className="grid grid-cols-1 gap-4">
       <div className="card grid grid-cols-2 gap-3 md:grid-cols-4">
         <label className="block">
           <span className="label">Driver</span>

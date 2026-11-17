@@ -21,3 +21,17 @@ body {
 .btn-ghost {
   @apply rounded border border-zinc-700 px-3 py-1.5 text-sm text-zinc-200 hover:bg-zinc-800 disabled:opacity-40;
 }
+
+/* Let cards and charts shrink on narrow screens instead of forcing horizontal overflow */
+.card {
+  min-width: 0;
+  max-width: 100%;
+}
+.js-plotly-plot,
+.js-plotly-plot .plot-container {
+  max-width: 100%;
+}
+html,
+body {
+  overflow-x: hidden;
+}

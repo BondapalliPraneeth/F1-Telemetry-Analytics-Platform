@@ -98,7 +98,7 @@ function Charts({ c }: { c: Compare }) {
     ...extra,
   });
   return (
-    <div className="grid gap-4">
+    <div className="grid grid-cols-1 gap-4">
       <section className="card" aria-label="Delta trace">
         <h3 className="mb-1 text-sm font-semibold">
           Delta ({c.b.driver} − {c.a.driver}) · positive = {c.b.driver} slower
@@ -218,7 +218,7 @@ export default function ComparePanel({ session, drivers }: { session: number; dr
 
   if (drivers.length === 0) return <Empty>No drivers in this session.</Empty>;
   return (
-    <div className="grid gap-4">
+    <div className="grid grid-cols-1 gap-4">
       <div className="card grid grid-cols-2 gap-3 md:grid-cols-4">
         <DriverSelect label="Driver A" drivers={drivers} value={a} onChange={(v) => { setA(v); setLapA(undefined); }} />
         <LapSelect label="Lap A" laps={lapsA.data ?? []} value={lapA} onChange={setLapA} />
