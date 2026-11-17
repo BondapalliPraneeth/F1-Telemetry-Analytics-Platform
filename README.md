@@ -1,14 +1,10 @@
 # F1 Telemetry Analytics Platform
 
-> Unofficial project. F1 and related marks belong to their owners.
 
 An end-to-end pipeline for Formula 1 timing and telemetry data: an idempotent ingestion CLI,
 a Parquet cache, distance-aligned lap comparison, tyre-degradation analysis with confidence
 intervals, a partitioned PostgreSQL store, a FastAPI service and a React dashboard with a
 WebSocket replay mode.
-
-![Monza 2024 Q delta trace](docs/monza-2024-q.gif)
-<!-- Placeholder: record this GIF after seeding (see "Quick start"). -->
 
 **Live:** dashboard <https://f1telemetryanalyticsplatform.netlify.app> · API <https://f1tel-api.onrender.com/docs>
 (the free Render tier sleeps when idle, so the first request can take about a minute).
