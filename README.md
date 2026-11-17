@@ -10,6 +10,33 @@ WebSocket replay mode.
 ![Monza 2024 Q delta trace](docs/monza-2024-q.gif)
 <!-- Placeholder: record this GIF after seeding (see "Quick start"). -->
 
+**Live:** dashboard <https://f1telemetryanalyticsplatform.netlify.app> · API <https://f1tel-api.onrender.com/docs>
+(the free Render tier sleeps when idle, so the first request can take about a minute).
+
+## Handover: read this first if you are a new developer or an AI assistant
+
+* **Status:** all 9 build phases are done and deployed (frontend on Netlify, API and managed PostgreSQL
+  on Render via `render.yaml`). A full audit is in
+  [F1_TELEMETRY_PLATFORM_COMPLETE_AUDIT_REPORT.md](F1_TELEMETRY_PLATFORM_COMPLETE_AUDIT_REPORT.md)
+  (a Word copy sits next to it); its section 11 lists what is still open.
+* **Data flow:** FastF1/Jolpica/OpenF1 -> `src/f1tel/ingest.py` (CLI `f1tel`) -> `data/raw/` Parquet ->
+  `src/f1tel/align.py` (10 m grid) -> `src/f1tel/dbload.py` -> PostgreSQL -> `src/f1tel/api.py` ->
+  `frontend/` (React + Vite + Tailwind + Plotly).
+* **Where things live:** `src/f1tel/` backend (`api.py` routes, `degradation.py` regression,
+  `replay.py` WebSocket, `db.py` models, `schemas.py`), `tests/` (synthetic fixture with known truths),
+  `frontend/src/components/` one panel per tab, `docs/architecture.md` design notes.
+* **Conventions:** `delta = time_B - time_A` (positive means B is slower). Tyre degradation is race-only;
+  qualifying shows a separately labelled session lap-time trend (`/pace-trend`), which is track
+  evolution, not tyre wear. Never invent or mock telemetry numbers.
+* **Rules for contributors:** no secrets in the repo (F1 credentials come from `F1_USERNAME` /
+  `F1_PASSWORD` in your shell; the database URL from `F1TEL_DATABASE_URL`); raw data is git-ignored; no
+  F1 logos; the repository owner makes the commits and pushes; commit messages carry no tool attribution.
+* **Verify a change:** `pytest --cov` (gate 80%), `ruff check .`, then in `frontend/`:
+  `npx tsc --noEmit` and `npm run build`.
+* **Gotchas:** Render's free Postgres drops long transactions, so `dbload.py` loads in short retried
+  chunks and removes a half-loaded session on failure (a reload replaces the old copy of that session).
+  Integer ids are bounded to the PostgreSQL integer range and the API sends security headers.
+
 ## What it does
 
 * **Ingest** sessions from FastF1 (timing + telemetry), Jolpica (results, pit stops) and OpenF1
@@ -19,10 +46,13 @@ WebSocket replay mode.
   delta-time trace and 20 mini-sectors.
 * **Analyse tyre degradation**: remove pit, safety-car and first laps, apply a fuel correction,
   fit a regression and report the slope with a confidence interval.
-* **Serve** it all through a FastAPI app (`/sessions`, `/laps`, `/compare`, `/degradation`, `/stints`,
-  `/drivers`, `/health`, `/ws/replay`).
+* **Qualifying trend:** for qualifying sessions, fit a labelled session lap-time trend over push laps
+  (`/pace-trend`) instead of a tyre-degradation line, because qualifying runs are too short.
+* **Serve** it all through a FastAPI app (`/sessions`, `/laps`, `/compare`, `/degradation`, `/pace-trend`,
+  `/stints`, `/drivers`, `/health`, `/ws/replay`).
 * **Show** it in a dashboard: session browser, lap picker, speed/throttle/brake overlay, delta trace
-  with corner markers, sector tables, degradation chart with a confidence band and a replay panel.
+  with corner markers, sector tables, degradation chart with a confidence band (race), a qualifying
+  lap-time trend, and a replay panel with a leaderboard showing driver and team names.
 
 Design details are in [docs/architecture.md](docs/architecture.md).
 
@@ -87,7 +117,7 @@ Entries say **not yet measured** until the script has been run against real inge
 
 | Metric | Value |
 | --- | --- |
-| Test coverage (`pytest --cov`, gate at 80%) | 93.6% (77 tests passed, 1 PostgreSQL-only test skipped locally; synthetic fixture) |
+| Test coverage (`pytest --cov`, gate at 80%) | 93.8% (83 tests passed, 1 PostgreSQL-only test skipped locally; synthetic fixture) |
 | Telemetry samples ingested | 2,181,236 raw samples across the 5 seed sessions (3,133 laps) |
 | Parquet reload vs cold FastF1 load | 0.21 s vs 49.5 s for 2024 Monza Q (about 235x faster; median of 5 reloads) |
 | Sessions in the seed set | 5 (2024 Monza Q, Monza R, Bahrain R, Monaco Q, Silverstone R) |
@@ -107,13 +137,14 @@ a nightly CI smoke job rather than unit tests.
 
 ## Deployment notes
 
-Not deployed by this repo; the pieces map onto common hosts:
+Currently deployed as follows (the pieces also map onto other hosts):
 
-* **API**: any container host (Fly.io, Render) using `Dockerfile.api`; set `F1TEL_DATABASE_URL`
-  and `F1TEL_CORS_ORIGINS`. The container runs `alembic upgrade head` on start.
-* **Database**: managed PostgreSQL 16.
-* **Frontend**: static build (`npm run build`) on Vercel or similar; set `VITE_API_URL` to the API's
-  public URL (WebSocket replay uses the same base).
+* **API**: Render web service from `Dockerfile.api` (see `render.yaml`); set `F1TEL_DATABASE_URL` and
+  `F1TEL_CORS_ORIGINS` (the Netlify origin). The container runs `alembic upgrade head` on start.
+* **Database**: managed PostgreSQL on Render. Load sessions with `f1tel load-db` pointed at it via
+  `F1TEL_DATABASE_URL` in your own shell.
+* **Frontend**: Netlify static build (`frontend/netlify.toml`, SPA redirect and security headers); set
+  `VITE_API_URL` to the API's public URL at build time (WebSocket replay uses the same base).
 
 ## Data sources and licences
 
