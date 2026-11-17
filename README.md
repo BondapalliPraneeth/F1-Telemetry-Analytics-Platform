@@ -15,6 +15,9 @@ WebSocket replay mode.
   on Render via `render.yaml`). A full audit is in
   [F1_TELEMETRY_PLATFORM_COMPLETE_AUDIT_REPORT.md](F1_TELEMETRY_PLATFORM_COMPLETE_AUDIT_REPORT.md)
   (a Word copy sits next to it); its section 11 lists what is still open.
+* **More documentation:** [docs/architecture.md](docs/architecture.md) (design),
+  [docs/HOW_WE_BUILT_IT.md](docs/HOW_WE_BUILT_IT.md) (step-by-step build story) and
+  [docs/PROJECT_WALKTHROUGH.md](docs/PROJECT_WALKTHROUGH.md) (tech stack and workflow in plain language).
 * **Data flow:** FastF1/Jolpica/OpenF1 -> `src/f1tel/ingest.py` (CLI `f1tel`) -> `data/raw/` Parquet ->
   `src/f1tel/align.py` (10 m grid) -> `src/f1tel/dbload.py` -> PostgreSQL -> `src/f1tel/api.py` ->
   `frontend/` (React + Vite + Tailwind + Plotly).
